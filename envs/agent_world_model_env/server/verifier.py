@@ -271,6 +271,7 @@ async def run_llm_judge(
 
     llm_base_url = _normalize_azure_url(llm_base_url)
 
+    client = None
     try:
         client = AsyncOpenAI(base_url=llm_base_url, api_key=llm_api_key or "EMPTY")
 
@@ -382,6 +383,13 @@ async def run_llm_judge(
     except Exception as e:
         logger.error(f"LLM judge failed: {e}")
         return "judge_error", {"error": str(e)}
+    finally:
+        if client is not None:
+            # Close the httpx pool inside the one-shot event loop that created it
+            # (_run_async_oneshot closes that loop right after). Otherwise the pool's
+            # finalizer later calls loop.call_soon() on the closed loop, raising
+            # "RuntimeError: Event loop is closed".
+            await client.close()
 
 
 def _sanitize_for_json(obj: Any) -> Any:
