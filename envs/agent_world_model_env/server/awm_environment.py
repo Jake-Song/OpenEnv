@@ -4,7 +4,6 @@ environment. Each sub-environment is launched as a subprocess on demand
 and accessed via MCP tool calls.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -21,7 +20,7 @@ from .data_loader import AWMDataLoader, normalize_scenario_name
 from .db_manager import cleanup_session_dir, create_database, save_snapshot
 from .scenario_manager import ScenarioProcess
 from .session_registry import registry as _registry
-from .verifier import run_llm_judge, run_verifier
+from .verifier import run_verifier, submit_judge
 from .config import DEFAULT_REWARD_CONFIG
 
 logger = logging.getLogger(__name__)
@@ -60,15 +59,6 @@ def _classify_tool_error(error_msg: str) -> str:
     if any(kw in lower for kw in _TIMEOUT_KEYWORDS):
         return "timeout"
     return "server_error"
-
-
-def _run_async_oneshot(coro: Any) -> Any:
-    """Run an async coroutine from sync context (one-shot, for LLM judge etc.)."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
 
 
 class AWMEnvironment(Environment):
@@ -549,18 +539,16 @@ class AWMEnvironment(Environment):
                 raw_response = {}
 
             try:
-                reward_type, judge_result = _run_async_oneshot(
-                    run_llm_judge(
-                        task=self._task,
-                        verifier_result=verify_result,
-                        llm_base_url=self._llm_base_url,
-                        llm_api_key=self._llm_api_key,
-                        llm_model=self._llm_model,
-                        trajectory=self._trajectory,
-                        verifier_reasoning=raw_response.get("reasoning", ""),
-                        success_criteria=raw_response.get("success_criteria", ""),
-                        failure_criteria=raw_response.get("failure_criteria", ""),
-                    )
+                reward_type, judge_result = submit_judge(
+                    task=self._task,
+                    verifier_result=verify_result,
+                    llm_base_url=self._llm_base_url,
+                    llm_api_key=self._llm_api_key,
+                    llm_model=self._llm_model,
+                    trajectory=self._trajectory,
+                    verifier_reasoning=raw_response.get("reasoning", ""),
+                    success_criteria=raw_response.get("success_criteria", ""),
+                    failure_criteria=raw_response.get("failure_criteria", ""),
                 )
                 verify_result["llm_judge"] = judge_result
             except Exception as e:
