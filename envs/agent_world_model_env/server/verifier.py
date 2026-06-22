@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 # Wall-clock backstop for the verifier subprocess
-VERIFIER_WALL_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_VERIFIER_TIMEOUT", "20.0"))
+VERIFIER_WALL_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_VERIFIER_TIMEOUT", "60.0"))
 
 # ---------------------------------------------------------------------------
 # Shared judge runtime
@@ -37,9 +37,9 @@ VERIFIER_WALL_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_VERIFIER_TIMEOUT", "
 # ---------------------------------------------------------------------------
 
 # Max concurrent in-flight judge requests across all sessions in this process.
-JUDGE_MAX_INFLIGHT = int(os.environ.get("OPENENV_AWM_JUDGE_MAX_INFLIGHT", "64"))
+JUDGE_MAX_INFLIGHT = int(os.environ.get("OPENENV_AWM_JUDGE_MAX_INFLIGHT", "128"))
 # Per-call wall-clock budget for a judge request (LLM latency, not the subprocess).
-JUDGE_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_JUDGE_TIMEOUT", "120.0"))
+JUDGE_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_JUDGE_TIMEOUT", "300.0"))
 
 _loop: asyncio.AbstractEventLoop | None = None
 _loop_lock = threading.Lock()
