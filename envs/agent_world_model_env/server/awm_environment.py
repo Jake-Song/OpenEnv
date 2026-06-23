@@ -529,7 +529,7 @@ class AWMEnvironment(Environment):
         )
 
         # For SQL mode, run LLM judge
-        if verifier_mode == "sql" and reward_type != "judge_error":
+        if verifier_mode == "sql" and reward_type != "code_verify_error":
             raw_response_str = verifier_entry.get("verification", {}).get(
                 "raw_response", "{}"
             )
@@ -553,7 +553,7 @@ class AWMEnvironment(Environment):
                 verify_result["llm_judge"] = judge_result
             except Exception as e:
                 logger.error(f"LLM judge failed: {e}")
-                reward_type = "judge_error"
+                reward_type = "llm_judge_error"
                 verify_result["llm_judge_error"] = str(e)
 
         self._trajectory.append(

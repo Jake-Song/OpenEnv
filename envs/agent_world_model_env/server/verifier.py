@@ -89,7 +89,7 @@ def submit_judge(**kwargs: Any) -> tuple[str, dict]:
 
     Concurrent callers (different sessions) all dispatch onto the same loop, so
     their requests overlap up to JUDGE_MAX_INFLIGHT instead of running serially.
-    Never raises — dispatch/timeout failures come back as ("judge_error", ...).
+    Never raises — dispatch/timeout failures come back as ("llm_judge_error", ...).
     """
     loop = _get_shared_loop()
     future = asyncio.run_coroutine_threadsafe(run_llm_judge(**kwargs), loop)
@@ -97,9 +97,9 @@ def submit_judge(**kwargs: Any) -> tuple[str, dict]:
         return future.result(timeout=JUDGE_TIMEOUT_S)
     except TimeoutError:
         future.cancel()
-        return "judge_error", {"error": f"Judge timed out after {JUDGE_TIMEOUT_S}s"}
+        return "llm_judge_error", {"error": f"Judge timed out after {JUDGE_TIMEOUT_S}s"}
     except Exception as e:  # noqa: BLE001 — scoring must never crash the step
-        return "judge_error", {"error": f"Judge dispatch failed: {e}"}
+        return "llm_judge_error", {"error": f"Judge dispatch failed: {e}"}
 
 # isolate runner script
 _RUNNER_PATH = os.path.join(
@@ -279,7 +279,7 @@ def run_verifier(
     code = verification.get("code", "")
 
     if not code or not isinstance(code, str) or len(code.strip()) < 10:
-        return "judge_error", {"error": "No valid verifier code found"}
+        return "code_verify_error", {"error": "No valid verifier code found"}
 
     default_func = (
         "verify_task_completion" if verifier_mode == "code" else "verify_task"
@@ -296,12 +296,12 @@ def run_verifier(
             code, func_name, initial_db_path, final_db_path, final_answer
         )
         if result.get("execution_status") == "error":
-            return "judge_error", result
+            return "code_verify_error", result
         return result.get("result", "others"), result
 
     result = execute_sql_verifier(code, func_name, initial_db_path, final_db_path)
     if isinstance(result, dict) and result.get("execution_status") == "error":
-        return "judge_error", result
+        return "code_verify_error", result
 
     return "incomplete", result
 
@@ -343,7 +343,7 @@ async def run_llm_judge(
         (classification, judge_result_dict)
     """
     if not llm_base_url or not llm_model:
-        return "judge_error", {
+        return "llm_judge_error", {
             "error": "LLM endpoint not configured for sql verifier mode"
         }
 
@@ -444,24 +444,30 @@ async def run_llm_judge(
                 try:
                     result = json.loads(match.group())
                 except json.JSONDecodeError:
-                    return "judge_error", {
+                    return "llm_judge_error", {
                         "error": f"Failed to parse LLM response: {content}"
                     }
             else:
-                return "judge_error", {
+                return "llm_judge_error", {
                     "error": f"Failed to parse LLM response: {content}"
                 }
 
-        classification = result.get("classification", "judge_error").lower().strip()
-        valid = {"complete", "incomplete", "server_error", "agent_error", "judge_error"}
+        classification = result.get("classification", "llm_judge_error").lower().strip()
+        valid = {
+            "complete",
+            "incomplete",
+            "server_error",
+            "agent_error",
+            "llm_judge_error",
+        }
         if classification not in valid:
-            classification = "judge_error"
+            classification = "llm_judge_error"
 
         return classification, result
 
     except Exception as e:
         logger.error(f"LLM judge failed: {e}")
-        return "judge_error", {"error": str(e)}
+        return "llm_judge_error", {"error": str(e)}
 
 
 def _sanitize_for_json(obj: Any) -> Any:

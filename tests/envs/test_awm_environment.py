@@ -506,7 +506,7 @@ class TestVerifier:
         with tempfile.TemporaryDirectory() as td:
             initial, final = self._setup_db(td)
             reward_type, result = run_verifier(verifier_entry, "code", initial, final)
-            assert reward_type == "judge_error"
+            assert reward_type == "code_verify_error"
 
 
 # ─── Azure URL normalization ─────────────────────────────────────────
@@ -1089,7 +1089,7 @@ class TestAWMEnvironmentUnit:
             )
         )
         # Should not error - the final_answer should be passed to verifier
-        assert obs.reward_type in ("complete", "others", "judge_error")
+        assert obs.reward_type in ("complete", "others", "code_verify_error")
 
     def test_verify_returns_reward_value(self, mock_data_dir):
         """verify tool should return a numeric reward value, not None."""
