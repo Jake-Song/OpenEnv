@@ -37,7 +37,7 @@ VERIFIER_WALL_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_VERIFIER_TIMEOUT", "
 # ---------------------------------------------------------------------------
 
 # Max concurrent in-flight judge requests across all sessions in this process.
-JUDGE_MAX_INFLIGHT = int(os.environ.get("OPENENV_AWM_JUDGE_MAX_INFLIGHT", "128"))
+JUDGE_MAX_INFLIGHT = int(os.environ.get("OPENENV_AWM_JUDGE_MAX_INFLIGHT", "512"))
 # Per-call wall-clock budget for a judge request (LLM latency, not the subprocess).
 JUDGE_TIMEOUT_S = float(os.environ.get("OPENENV_AWM_JUDGE_TIMEOUT", "300.0"))
 
