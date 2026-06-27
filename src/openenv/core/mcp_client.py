@@ -59,6 +59,7 @@ Examples:
 """
 
 import asyncio
+import os
 from typing import Any, Dict, List, Optional
 
 from .client_types import StepResult
@@ -72,6 +73,28 @@ from .env_server.mcp_types import (
     ToolError,
 )
 from .env_server.types import Observation, State
+
+
+def _env_int_or_none(name: str, default: Optional[int]) -> Optional[int]:
+    """Read an int from the environment; values <= 0 (or unset -> default) mean unlimited."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    value = int(raw)
+    return None if value <= 0 else value
+
+
+# Connection-pool sizing for the shared MCP HTTP client. httpx's default pool caps
+# total connections at 100, which silently throttles concurrent rollouts to 100
+# regardless of how many tasks are in flight (the pool queues the rest). Size the
+# pool from the environment so it can match the trainer's concurrency (e.g.
+# `max_inflight_tasks`). Defaults: no hard connection cap, and a generous keep-alive
+# pool that never expires on idle so warm connections survive gaps between training
+# steps (avoiding TCP-handshake churn and ephemeral-port exhaustion under load).
+_MCP_MAX_CONNECTIONS = _env_int_or_none("OPENENV_MCP_MAX_CONNECTIONS", None)
+_MCP_MAX_KEEPALIVE_CONNECTIONS = _env_int_or_none(
+    "OPENENV_MCP_MAX_KEEPALIVE_CONNECTIONS", 512
+)
 
 
 class MCPClientBase(EnvClient[Any, Observation, State]):
@@ -152,7 +175,13 @@ class MCPClientBase(EnvClient[Any, Observation, State]):
         if self._http_client is None:
             import httpx
 
-            self._http_client = httpx.AsyncClient()
+            self._http_client = httpx.AsyncClient(
+                limits=httpx.Limits(
+                    max_connections=_MCP_MAX_CONNECTIONS,
+                    max_keepalive_connections=_MCP_MAX_KEEPALIVE_CONNECTIONS,
+                    keepalive_expiry=None,
+                )
+            )
         return self._http_client
 
     async def _production_mcp_request(
